@@ -2,8 +2,8 @@ import fs from 'node:fs';
 import { copyFile, mkdir, readdir } from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
 import path from 'node:path';
-import type { Plugin, ResolvedConfig, ViteDevServer, LogLevel } from 'vite';
-import type { RollupLog } from 'rollup';
+import { createLogger } from 'vite';
+import type { Plugin, ResolvedConfig, ViteDevServer, UserConfig } from 'vite';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -19,7 +19,7 @@ export interface IonicPluginOptions {
    * Suppress the LightningCSS warning about `:host-context()`.
    * Ionic uses it for RTL support inside Shadow DOM — it is valid but
    * LightningCSS doesn't recognise it and emits a noisy warning.
-   * Requires Vite 5.1+ (uses the `onLog` plugin hook).
+   * Implemented via Vite's `customLogger` — works with all Vite versions.
    * @default true
    */
   suppressHostContextWarning?: boolean;
@@ -93,8 +93,12 @@ function ionicPlugin(options: IonicPluginOptions = {}): Plugin {
     name: PLUGIN_NAME,
 
     // ── 1. Merge config ──────────────────────────────────────────────────────
-    config() {
-      return {
+    // LightningCSS warnings come from Vite's internal CSS processing, which
+    // calls config.logger.warn() directly — NOT via the Rollup/Rolldown onLog
+    // hook. The only reliable way to suppress them is via customLogger.
+    // We wrap whatever logger the user already has (or create a default one).
+    config(userConfig: UserConfig) {
+      const base = {
         optimizeDeps: {
           exclude: [ionicPackage],
         },
@@ -106,6 +110,21 @@ function ionicPlugin(options: IonicPluginOptions = {}): Plugin {
           },
         },
       };
+
+      if (!suppressHostContextWarning) return base;
+
+      const upstream = userConfig.customLogger ?? createLogger();
+      const _warn    = upstream.warn.bind(upstream);
+
+      return {
+        ...base,
+        customLogger: Object.assign(Object.create(upstream) as typeof upstream, {
+          warn(msg: string, options?: Parameters<typeof upstream.warn>[1]) {
+            if (msg.includes(':host-context')) return;
+            _warn(msg, options);
+          },
+        }),
+      };
     },
 
     // ── 2. Capture resolved paths ────────────────────────────────────────────
@@ -113,27 +132,6 @@ function ionicPlugin(options: IonicPluginOptions = {}): Plugin {
       ionicDist = resolveIonicDist(config.root, ionicPackage);
       outDir    = path.resolve(config.root, config.build.outDir);
     },
-
-    // ── 3. Suppress LightningCSS :host-context() warning (Vite 5.1+) ────────
-    // Rolldown (Vite 6+): onLog(level, log) → return false to suppress.
-    // Rollup  (Vite 5.x): onLog(level, log, defaultHandler) → call defaultHandler
-    //                      to pass through, or omit to suppress.
-    // We handle both at runtime by checking for the 3rd argument.
-    // The cast is needed because the installed Rolldown types omit defaultHandler.
-    onLog: ((level: LogLevel, log: RollupLog, ...rest: unknown[]) => {
-      if (
-        suppressHostContextWarning
-        && level === 'warn'
-        && log.message?.includes(':host-context')
-      ) {
-        return false; // suppress — works on both Rollup and Rolldown
-      }
-      // Pass through: call defaultHandler if provided (Rollup/Vite 5),
-      // or return undefined so Rolldown applies its default handling.
-      const defaultHandler = rest[0] as ((l: string, lo: unknown) => void) | undefined;
-      defaultHandler?.(level, log);
-      return undefined;
-    }) as Plugin['onLog'],
 
     // ── 4. Dev: serve Ionic files directly from node_modules ─────────────────
     configureServer(server: ViteDevServer) {
