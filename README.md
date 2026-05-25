@@ -34,13 +34,35 @@ export default defineConfig({
 });
 ```
 
-Then load Ionic in your `index.html` or entry file:
+Then load Ionic in your app using one of two approaches:
+
+### Option 1 — HTML `<script>` tag
+
+Add the module directly in your `index.html`:
 
 ```html
 <script type="module" src="/ionic.esm.js"></script>
 ```
 
-That's it. Works with React, Vue, Angular, Svelte, Mithril, or plain HTML.
+### Option 2 — Dynamic import in your entry script
+
+Use a dynamic import with `/* @vite-ignore */` so Vite doesn't try to resolve
+or bundle the path (it is intentionally external and served as a static file):
+
+```js
+// main.js / main.ts
+const ionicPath = '/ionic.esm.js';
+await import(/* @vite-ignore */ ionicPath);
+```
+
+The `/* @vite-ignore */` comment is required — without it Vite will warn about
+an unresolvable import and may attempt to bundle it.
+
+Both approaches work identically in dev and production.
+
+---
+
+Works with React, Vue, Angular, Svelte, Mithril, or plain HTML.
 
 ## Options
 
