@@ -51,8 +51,10 @@ or bundle the path (it is intentionally external and served as a static file):
 
 ```js
 // main.js / main.ts
-const ionicPath = '/ionic.esm.js';
-await import(/* @vite-ignore */ ionicPath);
+(async () => {
+  const ionicPath = '/ionic.esm.js';
+  await import(/* @vite-ignore */ ionicPath);
+})();
 ```
 
 The `/* @vite-ignore */` comment is required — without it Vite will warn about
