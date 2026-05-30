@@ -1,6 +1,6 @@
 {
   "name": "vite-plugin-ionic",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Vite plugin that integrates @ionic/core — handles static file serving (dev + build), optimizeDeps, externals, and LightningCSS warning suppression.",
   "keywords": [
     "vite",

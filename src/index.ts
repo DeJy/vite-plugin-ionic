@@ -1,9 +1,10 @@
 import fs from 'node:fs';
 import { copyFile, mkdir, readdir } from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
+import type { ServerResponse } from 'node:http';
 import path from 'node:path';
 import { createLogger } from 'vite';
-import type { Plugin, ResolvedConfig, ViteDevServer, UserConfig } from 'vite';
+import type { Connect, Plugin, ResolvedConfig, ViteDevServer, UserConfig } from 'vite';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -23,6 +24,14 @@ export interface IonicPluginOptions {
    * @default true
    */
   suppressHostContextWarning?: boolean;
+
+  /**
+   * Copy the `svg/` icon directory to the build output.
+   * Set to `false` when using a plugin like `vite-plugin-ionic-icons` that
+   * handles icons separately — avoids duplicating all 1 300+ SVG files.
+   * @default true
+   */
+  copyIcons?: boolean;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -41,17 +50,19 @@ const MIME: Record<string, string> = {
 };
 
 /** Recursively copy a directory tree using Promise.all for parallelism. */
-async function copyDir(src: string, dest: string): Promise<void> {
+async function copyDir(src: string, dest: string, exclude: string[] = []): Promise<void> {
   const entries = await readdir(src, { withFileTypes: true });
   await mkdir(dest, { recursive: true });
   await Promise.all(
-    entries.map((entry) => {
-      const srcPath  = path.join(src,  entry.name);
-      const destPath = path.join(dest, entry.name);
-      return entry.isDirectory()
-        ? copyDir(srcPath, destPath)
-        : copyFile(srcPath, destPath);
-    }),
+    entries
+      .filter((entry) => !exclude.includes(entry.name))
+      .map((entry) => {
+        const srcPath  = path.join(src,  entry.name);
+        const destPath = path.join(dest, entry.name);
+        return entry.isDirectory()
+          ? copyDir(srcPath, destPath)
+          : copyFile(srcPath, destPath);
+      }),
   );
 }
 
@@ -84,6 +95,7 @@ function ionicPlugin(options: IonicPluginOptions = {}): Plugin {
   const {
     ionicPackage              = '@ionic/core',
     suppressHostContextWarning = true,
+    copyIcons                  = true,
   } = options;
 
   let ionicDist = '';
@@ -133,6 +145,14 @@ function ionicPlugin(options: IonicPluginOptions = {}): Plugin {
       outDir    = path.resolve(config.root, config.build.outDir);
     },
 
+    // ── 3. Dev: tell Vite's import-analysis to leave /ionic.esm.js alone ───────
+    // build.rollupOptions.external only applies to Rollup/Rolldown during build.
+    // Vite 6+ import-analysis runs in dev and rejects dynamic imports it can't
+    // resolve in the module graph. Returning external:true here bypasses that.
+    resolveId(id: string) {
+      if (id === '/ionic.esm.js') return { id, external: true };
+    },
+
     // ── 4. Dev: serve Ionic files directly from node_modules ─────────────────
     configureServer(server: ViteDevServer) {
       if (!fs.existsSync(ionicDist)) {
@@ -143,7 +163,7 @@ function ionicPlugin(options: IonicPluginOptions = {}): Plugin {
         return;
       }
 
-      server.middlewares.use((req, res, next) => {
+      server.middlewares.use((req: Connect.IncomingMessage, res: ServerResponse, next: Connect.NextFunction) => {
         const url  = req.url?.split('?')[0] ?? '';
         const file = path.join(ionicDist, url);
 
@@ -170,7 +190,7 @@ function ionicPlugin(options: IonicPluginOptions = {}): Plugin {
         return;
       }
 
-      await copyDir(ionicDist, outDir);
+      await copyDir(ionicDist, outDir, copyIcons ? [] : ['svg']);
     },
   };
 
