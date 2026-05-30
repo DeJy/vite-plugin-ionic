@@ -17,15 +17,6 @@ export interface IonicPluginOptions {
   ionicPackage?: string;
 
   /**
-   * Suppress the LightningCSS warning about `:host-context()`.
-   * Ionic uses it for RTL support inside Shadow DOM — it is valid but
-   * LightningCSS doesn't recognise it and emits a noisy warning.
-   * Implemented via Vite's `customLogger` — works with all Vite versions.
-   * @default true
-   */
-  suppressHostContextWarning?: boolean;
-
-  /**
    * Copy the `svg/` icon directory to the build output.
    * Set to `false` when using a plugin like `vite-plugin-ionic-icons` that
    * handles icons separately — avoids duplicating all 1 300+ SVG files.
@@ -84,6 +75,8 @@ const PLUGIN_NAME = 'vite-plugin-ionic';
  * - Marks `/ionic.esm.js` as external so the bundler doesn't try to inline it.
  * - Serves Ionic's runtime files from node_modules during **dev** (no copy needed).
  * - Copies all files from `@ionic/core/dist/ionic/` to the build output during **build**.
+ *   Pass `copyIcons: false` when using `vite-plugin-ionic-icons` (or similar) to skip
+ *   the 1 300+ SVG files in `svg/` that the icons plugin already handles.
  * - Suppresses the noisy LightningCSS `:host-context()` warning (Vite 5.1+).
  *
  * @example
@@ -93,9 +86,8 @@ const PLUGIN_NAME = 'vite-plugin-ionic';
  */
 function ionicPlugin(options: IonicPluginOptions = {}): Plugin {
   const {
-    ionicPackage              = '@ionic/core',
-    suppressHostContextWarning = true,
-    copyIcons                  = true,
+    ionicPackage = '@ionic/core',
+    copyIcons    = true,
   } = options;
 
   let ionicDist = '';
@@ -122,8 +114,6 @@ function ionicPlugin(options: IonicPluginOptions = {}): Plugin {
           },
         },
       };
-
-      if (!suppressHostContextWarning) return base;
 
       const upstream = userConfig.customLogger ?? createLogger();
       const _warn    = upstream.warn.bind(upstream);

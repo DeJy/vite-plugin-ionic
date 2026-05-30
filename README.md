@@ -10,7 +10,7 @@ Vite plugin that integrates [`@ionic/core`](https://ionicframework.com/) (Ionic 
 | Mark `/ionic.esm.js` as external in build options | ✅ Done automatically |
 | Use `vite-plugin-static-copy` to copy `dist/ionic/*` to output | ✅ Built-in, no extra dependency |
 | Add a custom middleware to serve Ionic in dev mode | ✅ Built-in |
-| Suppress LightningCSS `:host-context()` warning | ✅ Built-in (Vite 5.1+) |
+| Skip copying icons when using `vite-plugin-ionic-icons` | ✅ `copyIcons: false` |
 
 ## Install
 
@@ -78,13 +78,12 @@ interface IonicPluginOptions {
   ionicPackage?: string;
 
   /**
-   * Suppress the LightningCSS warning about :host-context().
-   * Ionic uses it for RTL support inside Shadow DOM — it is valid
-   * but LightningCSS doesn't recognise it and emits a noisy warning.
-   * Requires Vite 5.1+ (uses the onLog plugin hook).
+   * Copy the svg/ icon directory to the build output.
+   * Set to false when using a plugin like vite-plugin-ionic-icons that
+   * handles icons separately — avoids duplicating all 1 300+ SVG files.
    * @default true
    */
-  suppressHostContextWarning?: boolean;
+  copyIcons?: boolean;
 }
 ```
 
@@ -92,8 +91,8 @@ interface IonicPluginOptions {
 
 ```js
 ionic({
-  suppressHostContextWarning: false, // keep the warning visible
   ionicPackage: '@my-fork/ionic-core',
+  copyIcons: false, // icons handled by vite-plugin-ionic-icons
 })
 ```
 
@@ -106,9 +105,6 @@ ionic({
 | 6.x  | Rolldown| ✅ |
 | 7.x  | Rolldown| ✅ |
 
-> **Note:** The `:host-context()` warning suppression uses the `onLog` plugin hook,
-> which was added in Vite 5.1. On Vite 4 the hook is silently ignored and the warning
-> may appear in your console — it is harmless.
 
 ## How it works
 
@@ -122,6 +118,9 @@ Connect middleware. No files are copied — fast startup, no public directory po
 All files from `node_modules/@ionic/core/dist/ionic/` are copied to the root of your
 output directory (e.g. `dist/`) using Node's built-in `fs` APIs. No dependency on
 `vite-plugin-static-copy`.
+
+When `copyIcons: false` is set, the `svg/` directory (1 300+ icon SVGs) is excluded
+from the copy — useful when `vite-plugin-ionic-icons` is already handling icons.
 
 ### Externals
 
