@@ -92,6 +92,36 @@ describe('writeBundle() hook — build copy', () => {
     expect(warn.mock.calls[0][0]).toContain('@ionic/core');
   });
 
+  it('skips svg/ when copyIcons is false', async () => {
+    const { root, cleanup: c } = makeFixture({
+      'node_modules/@ionic/core/dist/ionic/ionic.esm.js': '// esm',
+      'node_modules/@ionic/core/dist/ionic/svg/add.svg':  '<svg/>',
+    });
+    cleanup = c;
+
+    const plugin = ionicPlugin({ copyIcons: false });
+    resolvePlugin(plugin, root, 'dist');
+
+    await (plugin.writeBundle as Function).call({ warn: vi.fn() });
+
+    expect(existsSync(path.join(root, 'dist/ionic.esm.js'))).toBe(true);
+    expect(existsSync(path.join(root, 'dist/svg/add.svg'))).toBe(false);
+  });
+
+  it('copies svg/ by default', async () => {
+    const { root, cleanup: c } = makeFixture({
+      'node_modules/@ionic/core/dist/ionic/svg/add.svg': '<svg/>',
+    });
+    cleanup = c;
+
+    const plugin = ionicPlugin();
+    resolvePlugin(plugin, root, 'dist');
+
+    await (plugin.writeBundle as Function).call({ warn: vi.fn() });
+
+    expect(existsSync(path.join(root, 'dist/svg/add.svg'))).toBe(true);
+  });
+
   it('respects a custom ionicPackage path', async () => {
     const { root, cleanup: c } = makeFixture({
       'node_modules/@my-fork/ionic-core/dist/ionic/ionic.esm.js': '// fork',

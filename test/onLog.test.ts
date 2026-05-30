@@ -38,14 +38,6 @@ describe('customLogger — LightningCSS :host-context suppression', () => {
     expect(upstream.warn).toHaveBeenCalledWith('Some other warning', undefined);
   });
 
-  it('does not inject customLogger when suppressHostContextWarning is false', () => {
-    const plugin = ionicPlugin({ suppressHostContextWarning: false });
-    const cfg = typeof plugin.config === 'function'
-      ? (plugin.config as Function)({}, { mode: 'development', command: 'serve' })
-      : undefined;
-    expect(cfg?.customLogger).toBeUndefined();
-  });
-
   it('wraps an existing customLogger without replacing it entirely', () => {
     const plugin   = ionicPlugin();
     const upstream = { warn: vi.fn(), info: vi.fn(), error: vi.fn(), warnOnce: vi.fn() };

@@ -40,3 +40,17 @@ describe('config() hook', () => {
     expect(plugin.name).toBe('vite-plugin-ionic');
   });
 });
+
+describe('resolveId() hook', () => {
+  it('marks /ionic.esm.js as external', () => {
+    const plugin = ionicPlugin();
+    const result = (plugin.resolveId as Function)('/ionic.esm.js');
+    expect(result).toEqual({ id: '/ionic.esm.js', external: true });
+  });
+
+  it('returns undefined for other ids', () => {
+    const plugin = ionicPlugin();
+    const result = (plugin.resolveId as Function)('/some-other-file.js');
+    expect(result).toBeUndefined();
+  });
+});
