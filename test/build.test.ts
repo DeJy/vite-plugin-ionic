@@ -122,6 +122,23 @@ describe('writeBundle() hook — build copy', () => {
     expect(existsSync(path.join(root, 'dist/svg/add.svg'))).toBe(true);
   });
 
+  it('copies files to outDir/subdir when subdir is set', async () => {
+    const { root, cleanup: c } = makeFixture({
+      'node_modules/@ionic/core/dist/ionic/ionic.esm.js': '// esm',
+      'node_modules/@ionic/core/dist/ionic/ionic.css':    '/* css */',
+    });
+    cleanup = c;
+
+    const plugin = ionicPlugin({ subdir: 'vendor' });
+    resolvePlugin(plugin, root, 'dist');
+
+    await (plugin.writeBundle as Function).call({ warn: vi.fn() });
+
+    expect(existsSync(path.join(root, 'dist/vendor/ionic.esm.js'))).toBe(true);
+    expect(existsSync(path.join(root, 'dist/vendor/ionic.css'))).toBe(true);
+    expect(existsSync(path.join(root, 'dist/ionic.esm.js'))).toBe(false);
+  });
+
   it('respects a custom ionicPackage path', async () => {
     const { root, cleanup: c } = makeFixture({
       'node_modules/@my-fork/ionic-core/dist/ionic/ionic.esm.js': '// fork',

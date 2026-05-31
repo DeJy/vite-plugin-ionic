@@ -163,4 +163,28 @@ describe('configureServer() hook — dev middleware', () => {
     const res = await server.request('/svg');
     expect(res.next).toBe(true);
   });
+
+  it('serves files under /{subdir}/ prefix when subdir is set', async () => {
+    const plugin = ionicPlugin({ subdir: 'vendor' });
+    resolvePlugin(plugin, fixture.root);
+
+    const server = makeServer();
+    (plugin.configureServer as Function)(server);
+
+    const res = await server.request('/vendor/ionic.esm.js');
+    expect(res.next).toBe(false);
+    expect(res.headers['Content-Type']).toBe('application/javascript');
+    expect(res.body).toContain('// ionic esm');
+  });
+
+  it('calls next() for /ionic.esm.js (without subdir prefix) when subdir is set', async () => {
+    const plugin = ionicPlugin({ subdir: 'vendor' });
+    resolvePlugin(plugin, fixture.root);
+
+    const server = makeServer();
+    (plugin.configureServer as Function)(server);
+
+    const res = await server.request('/ionic.esm.js');
+    expect(res.next).toBe(true);
+  });
 });

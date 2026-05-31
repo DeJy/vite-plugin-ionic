@@ -23,6 +23,17 @@ export interface IonicPluginOptions {
    * @default true
    */
   copyIcons?: boolean;
+
+  /**
+   * Sub-directory under the build output root where Ionic files will be placed.
+   * When set, the Ionic entry point becomes `/{subdir}/ionic.esm.js` instead
+   * of `/ionic.esm.js`, in both dev and build.
+   * @example
+   * ionic({ subdir: 'vendor' })
+   * // → /vendor/ionic.esm.js
+   * @default undefined (files go directly to the build root)
+   */
+  subdir?: string;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -88,7 +99,10 @@ function ionicPlugin(options: IonicPluginOptions = {}): Plugin {
   const {
     ionicPackage = '@ionic/core',
     copyIcons    = true,
+    subdir,
   } = options;
+
+  const ionicEntryPath = subdir ? `/${subdir}/ionic.esm.js` : '/ionic.esm.js';
 
   let ionicDist = '';
   let outDir    = '';
@@ -110,7 +124,7 @@ function ionicPlugin(options: IonicPluginOptions = {}): Plugin {
           // rollupOptions works in Vite 4/5 (Rollup) and Vite 6/7 (Rolldown
           // honours the same external option for compatibility).
           rollupOptions: {
-            external: ['/ionic.esm.js'],
+            external: [ionicEntryPath],
           },
         },
       };
@@ -140,7 +154,7 @@ function ionicPlugin(options: IonicPluginOptions = {}): Plugin {
     // Vite 6+ import-analysis runs in dev and rejects dynamic imports it can't
     // resolve in the module graph. Returning external:true here bypasses that.
     resolveId(id: string) {
-      if (id === '/ionic.esm.js') return { id, external: true };
+      if (id === ionicEntryPath) return { id, external: true };
     },
 
     // ── 4. Dev: serve Ionic files directly from node_modules ─────────────────
@@ -153,9 +167,13 @@ function ionicPlugin(options: IonicPluginOptions = {}): Plugin {
         return;
       }
 
+      const prefix = subdir ? `/${subdir}` : '';
+
       server.middlewares.use((req: Connect.IncomingMessage, res: ServerResponse, next: Connect.NextFunction) => {
-        const url  = req.url?.split('?')[0] ?? '';
-        const file = path.join(ionicDist, url);
+        const url = req.url?.split('?')[0] ?? '';
+        if (prefix && !url.startsWith(prefix + '/')) return next();
+        const relativePath = prefix ? url.slice(prefix.length) : url;
+        const file = path.join(ionicDist, relativePath);
 
         if (!fs.existsSync(file) || fs.statSync(file).isDirectory()) {
           return next();
@@ -180,7 +198,8 @@ function ionicPlugin(options: IonicPluginOptions = {}): Plugin {
         return;
       }
 
-      await copyDir(ionicDist, outDir, copyIcons ? [] : ['svg']);
+      const destDir = subdir ? path.join(outDir, subdir) : outDir;
+      await copyDir(ionicDist, destDir, copyIcons ? [] : ['svg']);
     },
   };
 

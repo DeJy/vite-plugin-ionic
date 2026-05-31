@@ -84,6 +84,14 @@ interface IonicPluginOptions {
    * @default true
    */
   copyIcons?: boolean;
+
+  /**
+   * Sub-directory under the build output root where Ionic files will be placed.
+   * When set, the Ionic entry point becomes /{subdir}/ionic.esm.js instead of
+   * /ionic.esm.js, in both dev and build.
+   * @default undefined (files go directly to the build root)
+   */
+  subdir?: string;
 }
 ```
 
@@ -93,7 +101,21 @@ interface IonicPluginOptions {
 ionic({
   ionicPackage: '@my-fork/ionic-core',
   copyIcons: false, // icons handled by vite-plugin-ionic-icons
+  subdir: 'vendor',  // Ionic files go to dist/vendor/, served at /vendor/ionic.esm.js
 })
+```
+
+When `subdir` is set, use that path when loading Ionic:
+
+```html
+<!-- Option 1 -->
+<script type="module" src="/vendor/ionic.esm.js"></script>
+```
+
+```js
+// Option 2
+const ionicPath = '/vendor/ionic.esm.js';
+await import(/* @vite-ignore */ ionicPath);
 ```
 
 ## Compatibility

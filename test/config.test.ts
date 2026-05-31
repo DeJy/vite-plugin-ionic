@@ -35,6 +35,15 @@ describe('config() hook', () => {
     expect(cfg?.build?.rollupOptions?.external).toContain('/ionic.esm.js');
   });
 
+  it('marks /{subdir}/ionic.esm.js as external when subdir is set', () => {
+    const plugin = ionicPlugin({ subdir: 'vendor' });
+    const cfg = getConfig(plugin) as ReturnType<typeof getConfig> & {
+      build: { rollupOptions: { external: string[] } };
+    };
+    expect(cfg?.build?.rollupOptions?.external).toContain('/vendor/ionic.esm.js');
+    expect(cfg?.build?.rollupOptions?.external).not.toContain('/ionic.esm.js');
+  });
+
   it('returns a valid plugin name', () => {
     const plugin = ionicPlugin();
     expect(plugin.name).toBe('vite-plugin-ionic');
@@ -51,6 +60,18 @@ describe('resolveId() hook', () => {
   it('returns undefined for other ids', () => {
     const plugin = ionicPlugin();
     const result = (plugin.resolveId as Function)('/some-other-file.js');
+    expect(result).toBeUndefined();
+  });
+
+  it('marks /{subdir}/ionic.esm.js as external when subdir is set', () => {
+    const plugin = ionicPlugin({ subdir: 'vendor' });
+    const result = (plugin.resolveId as Function)('/vendor/ionic.esm.js');
+    expect(result).toEqual({ id: '/vendor/ionic.esm.js', external: true });
+  });
+
+  it('returns undefined for /ionic.esm.js when subdir is set', () => {
+    const plugin = ionicPlugin({ subdir: 'vendor' });
+    const result = (plugin.resolveId as Function)('/ionic.esm.js');
     expect(result).toBeUndefined();
   });
 });
